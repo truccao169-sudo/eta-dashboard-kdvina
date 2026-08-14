@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ETA Control Tower — KD VINA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0B1220;
+    --app-bg:#EEF1F6;
+    --surface:#FFFFFF;
+    --line:#DCE3EE;
+    --navy:#16324F;
+    --navy-2:#1E3A5F;
+    --steel:#3B7DDB;
+    --danger:#DC2626;
+    --danger-bg:#FDEBEB;
+    --warning:#E8862E;
+    --warning-bg:#FDF0E3;
+    --caution:#C99A11;
+    --caution-bg:#FCF6DE;
+    --good:#1B8A55;
+    --good-bg:#E7F5EE;
+    --muted:#5C6B80;
+    --muted-2:#8A97A8;
+    font-size:16px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--app-bg);
+    color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+  .disp{ font-family:'Space Grotesk', sans-serif; }
+
+  header.topbar{
+    background:linear-gradient(135deg, var(--navy) 0%, var(--navy-2) 100%);
+    color:#fff;
+    padding:22px 32px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:14px;
+    border-bottom:3px solid #0E2338;
+  }
+  header.topbar .title-block .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:#9FC1EA;
+    margin-bottom:6px;
+  }
+  header.topbar h1{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:26px;
+    margin:0;
+    font-weight:700;
+  }
+  header.topbar p{
+    margin:6px 0 0;
+    color:#C7D6E8;
+    font-size:13.5px;
+  }
+  .report-date{
+    text-align:right;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px;
+    color:#B9CBE3;
+  }
+  .report-date strong{
+    display:block;
+    color:#fff;
+    font-size:15px;
+    margin-top:2px;
+  }
+
+  main{
+    max-width:1360px;
+    margin:0 auto;
+    padding:28px 32px 60px;
+  }
+
+  /* ===== KPI cards ===== */
+  .kpi-row{
+    display:grid;
+    grid-template-columns:repeat(6, 1fr);
+    gap:14px;
+    margin-bottom:24px;
+  }
+  .kpi{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:16px 16px 14px;
+    position:relative;
+    overflow:hidden;
+  }
+  .kpi::before{
+    content:"";
+    position:absolute; top:0; left:0; right:0; height:3px;
+    background:var(--bar, var(--steel));
+  }
+  .kpi .lbl{
+    font-size:11.5px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    font-weight:600;
+  }
+  .kpi .val{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:30px;
+    font-weight:700;
+    margin-top:6px;
+    line-height:1;
+  }
+  .kpi .sub{
+    font-size:11.5px;
+    color:var(--muted-2);
+    margin-top:5px;
+  }
+  .kpi.danger{ --bar:var(--danger); }
+  .kpi.warning{ --bar:var(--warning); }
+  .kpi.good{ --bar:var(--good); }
+  .kpi.steel{ --bar:var(--steel); }
+  .kpi.navy{ --bar:var(--navy-2); }
+
+  /* ===== Signal strip (signature element) ===== */
+  .signal-panel{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:16px 20px 18px;
+    margin-bottom:24px;
+  }
+  .signal-panel h3{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:14.5px;
+    margin:0 0 3px;
+  }
+  .signal-panel .desc{ font-size:12px; color:var(--muted); margin-bottom:12px; }
+  .signal-strip{
+    display:flex;
+    align-items:flex-end;
+    gap:2px;
+    height:46px;
+    padding:2px 0;
+    overflow-x:auto;
+  }
+  .signal-tick{
+    flex:0 0 auto;
+    width:9px;
+    border-radius:2px 2px 0 0;
+    cursor:default;
+    transition:transform .12s ease;
+  }
+  .signal-tick:hover{ transform:scaleY(1.08); }
+  .signal-legend{
+    display:flex;
+    gap:16px;
+    margin-top:10px;
+    font-size:11.5px;
+    color:var(--muted);
+    flex-wrap:wrap;
+  }
+  .signal-legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .dot{ width:9px; height:9px; border-radius:2px; display:inline-block; }
+
+  /* ===== Filters ===== */
+  .filters{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+    margin-bottom:18px;
+  }
+  .filters label{
+    font-size:11.5px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    font-weight:600;
+    margin-right:6px;
+  }
+  .filters select{
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    padding:7px 10px;
+    border-radius:7px;
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--ink);
+  }
+  .filters .reset{
+    font-size:12.5px;
+    color:var(--steel);
+    background:none;
+    border:1px solid var(--steel);
+    border-radius:7px;
+    padding:6.5px 12px;
+    cursor:pointer;
+  }
+  .filters .reset:hover{ background:#EAF2FD; }
+
+  /* ===== Alert zone ===== */
+  .alert-zone{
+    border:1.5px solid #F1B3AE;
+    background:#FFFFFF;
+    border-radius:12px;
+    margin-bottom:26px;
+    overflow:hidden;
+  }
+  .alert-zone .az-head{
+    background:var(--danger-bg);
+    padding:14px 20px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:8px;
+    border-bottom:1.5px solid #F1B3AE;
+  }
+  .az-head h2{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:16px;
+    margin:0;
+    color:#8A1F1F;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .pulse-dot{
+    width:9px;height:9px;border-radius:50%;
+    background:var(--danger);
+    box-shadow:0 0 0 0 rgba(220,38,38,.6);
+    animation:pulse 1.8s infinite;
+  }
+  @keyframes pulse{
+    0%{ box-shadow:0 0 0 0 rgba(220,38,38,.55); }
+    70%{ box-shadow:0 0 0 8px rgba(220,38,38,0); }
+    100%{ box-shadow:0 0 0 0 rgba(220,38,38,0); }
+  }
+  .az-head .az-note{ font-size:12px; color:#9A4A45; }
+
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  thead th{
+    text-align:left;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--muted);
+    padding:10px 14px;
+    border-bottom:1px solid var(--line);
+    white-space:nowrap;
+  }
+  tbody td{
+    padding:10px 14px;
+    border-bottom:1px solid #F0F2F6;
+    white-space:nowrap;
+  }
+  tbody tr:hover{ background:#FAFBFD; }
+  td.po, th.po{ font-family:'IBM Plex Mono', monospace; font-weight:600; }
+  .pill{
+    display:inline-block;
+    padding:3px 9px;
+    border-radius:20px;
+    font-size:11.5px;
+    font-weight:600;
+  }
+  .pill.red{ background:var(--danger-bg); color:var(--danger); }
+  .pill.orange{ background:var(--warning-bg); color:var(--warning); }
+  .pill.yellow{ background:var(--caution-bg); color:var(--caution); }
+  .pill.green{ background:var(--good-bg); color:var(--good); }
+  .pill.gray{ background:#F1F3F6; color:var(--muted); }
+  .rd-val{ font-family:'IBM Plex Mono', monospace; font-weight:600; }
+  .table-scroll{ overflow-x:auto; }
+  .az-empty{ padding:26px 20px; text-align:center; color:var(--muted); font-size:13px; }
+
+  /* ===== Charts row ===== */
+  .charts-row{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:18px;
+    margin-bottom:22px;
+  }
+  .panel{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:18px 20px;
+  }
+  .panel h3{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:15px;
+    margin:0 0 4px;
+  }
+  .panel .panel-desc{ font-size:12px; color:var(--muted); margin-bottom:12px;}
+  .chart-wrap{ position:relative; height:230px; }
+  .chart-wrap.tall{ height:260px; }
+
+  /* ---- vẽ tay: donut ---- */
+  .donut-row{ display:flex; align-items:center; gap:22px; height:100%; }
+  .donut-ring{
+    width:170px; height:170px; border-radius:50%; flex:0 0 auto;
+    position:relative;
+  }
+  .donut-ring::after{
+    content:""; position:absolute; inset:26px;
+    background:#fff; border-radius:50%;
+  }
+  .donut-center{
+    position:absolute; inset:26px; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center;
+  }
+  .donut-center .n{ font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:700; }
+  .donut-center .l{ font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  .donut-legend2{ display:flex; flex-direction:column; gap:9px; font-size:12.5px; flex:1; }
+  .donut-legend2 .row{ display:flex; align-items:center; gap:8px; }
+  .donut-legend2 .row .dot{ width:10px; height:10px; border-radius:3px; flex:0 0 auto; }
+  .donut-legend2 .row .name{ flex:1; color:var(--ink); }
+  .donut-legend2 .row .cnt{ font-family:'IBM Plex Mono',monospace; font-weight:600; color:var(--muted); }
+
+  /* ---- vẽ tay: bar ngang ---- */
+  .barlist{ display:flex; flex-direction:column; gap:12px; height:100%; justify-content:center; }
+  .barlist .brow{ display:grid; grid-template-columns:118px 1fr 34px; align-items:center; gap:10px; }
+  .barlist .brow .blabel{ font-size:12px; color:var(--ink); text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .barlist .btrack{ background:#EEF1F6; border-radius:5px; height:14px; overflow:hidden; }
+  .barlist .bfill{ height:100%; background:var(--steel); border-radius:5px; transition:width .3s ease; }
+  .barlist .bval{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--muted); }
+
+  /* ---- vẽ tay: line chart svg ---- */
+  .linechart-svg{ width:100%; height:100%; overflow:visible; }
+  .linechart-svg .grid-line{ stroke:#EEF1F6; stroke-width:1; }
+  .linechart-svg .axis-label{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:var(--muted); }
+  .linechart-svg .value-label{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:var(--navy-2); font-weight:600; }
+  .linechart-svg .line-path{ fill:none; stroke:var(--navy-2); stroke-width:2.5; stroke-linejoin:round; stroke-linecap:round; }
+  .linechart-svg .area-path{ fill:rgba(59,125,219,0.12); stroke:none; }
+  .linechart-svg .pt{ fill:var(--navy-2); }
+  .empty-note{ font-size:12.5px; color:var(--muted-2); padding:20px; text-align:center; }
+
+  .fullwidth-panel{ margin-bottom:22px; }
+
+  /* ===== History (collapsible) ===== */
+  details.history{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:10px;
+    overflow:hidden;
+  }
+  details.history summary{
+    cursor:pointer;
+    list-style:none;
+    padding:16px 20px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-family:'Space Grotesk', sans-serif;
+    font-size:14.5px;
+    font-weight:600;
+  }
+  details.history summary::-webkit-details-marker{ display:none; }
+  details.history summary .chev{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color:var(--muted);
+    transition:transform .15s ease;
+  }
+  details.history[open] summary .chev{ transform:rotate(90deg); }
+  details.history .history-body{ border-top:1px solid var(--line); }
+
+  footer{
+    max-width:1360px;
+    margin:0 auto;
+    padding:6px 32px 40px;
+    font-size:11.5px;
+    color:var(--muted-2);
+  }
+
+  @media (max-width:1100px){
+    .kpi-row{ grid-template-columns:repeat(3,1fr); }
+    .charts-row{ grid-template-columns:1fr; }
+  }
+  @media (max-width:640px){
+    .kpi-row{ grid-template-columns:repeat(2,1fr); }
+    main{ padding:20px 16px 40px; }
+    header.topbar{ padding:18px 18px; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .pulse-dot{ animation:none; }
+    .signal-tick{ transition:none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="title-block">
+    <div class="eyebrow">KD VINA · Supply Chain Control Tower</div>
+    <h1>ETA Monitoring &amp; Alert Dashboard</h1>
+    <p>Theo dõi — Phân tích — Cảnh báo trễ ETA cho các lô thiết bị nhập khẩu</p>
+  </div>
+  <div class="report-date">
+    NGÀY CHỐT SỐ LIỆU
+    <strong id="reportDateLabel">—</strong>
+  </div>
+</header>
+
+<main>
+
+  <div class="filters">
+    <div><label for="fSupplier">Nhà cung cấp</label>
+      <select id="fSupplier"><option value="all">Tất cả</option></select>
+    </div>
+    <div><label for="fRisk">Risk level</label>
+      <select id="fRisk"><option value="all">Tất cả</option></select>
+    </div>
+    <div><label for="fStatus">Trạng thái</label>
+      <select id="fStatus"><option value="all">Tất cả</option></select>
+    </div>
+    <button class="reset" id="resetFilters">Xoá bộ lọc</button>
+  </div>
+
+  <div class="kpi-row" id="kpiRow"></div>
+
+  <div class="signal-panel">
+    <h3>Radar ETA — các lô đang xử lý</h3>
+    <div class="desc">Mỗi vạch là 1 lô hàng chưa giao, xếp theo Remaining Days (trái = trễ nhất, phải = còn nhiều thời gian nhất). Di chuột để xem chi tiết.</div>
+    <div class="signal-strip" id="signalStrip"></div>
+    <div class="signal-legend">
+      <span><i class="dot" style="background:var(--danger)"></i>Overdue (&lt; 0 ngày)</span>
+      <span><i class="dot" style="background:var(--warning)"></i>Critical (0–3 ngày)</span>
+      <span><i class="dot" style="background:var(--caution)"></i>Warning (4–7 ngày)</span>
+      <span><i class="dot" style="background:var(--good)"></i>On track (&gt; 7 ngày)</span>
+    </div>
+  </div>
+
+  <div class="alert-zone">
+    <div class="az-head">
+      <h2><span class="pulse-dot"></span> Cần xử lý ngay — Lô đang vận chuyển, chưa giao</h2>
+      <span class="az-note" id="alertCount">—</span>
+    </div>
+    <div class="table-scroll">
+      <table id="alertTable">
+        <thead>
+          <tr>
+            <th class="po">PO</th><th>Supplier</th><th>Carrier</th><th>Trạng thái</th>
+            <th>ETA Plan</th><th>ETA Current</th><th>Remaining</th><th>Risk</th><th>Nguyên nhân</th><th>Production Impact</th>
+          </tr>
+        </thead>
+        <tbody id="alertBody"></tbody>
+      </table>
+    </div>
+    <div class="az-empty" id="alertEmpty" style="display:none;">Không có lô nào khớp bộ lọc hiện tại — mọi thứ đều ổn.</div>
+  </div>
+
+  <div class="charts-row">
+    <div class="panel">
+      <h3>Shipment Status</h3>
+      <div class="panel-desc">Cơ cấu trạng thái của toàn bộ PO theo bộ lọc hiện tại</div>
+      <div class="chart-wrap" id="donutChart"></div>
+    </div>
+    <div class="panel">
+      <h3>Cause — Tổng số ngày trễ theo nguyên nhân</h3>
+      <div class="panel-desc">Chỉ tính trên các lô có Delay Days &gt; 0</div>
+      <div class="chart-wrap" id="causeChart"></div>
+    </div>
+  </div>
+
+  <div class="panel fullwidth-panel">
+    <h3>Xu hướng Leadtime Actual theo tháng</h3>
+    <div class="panel-desc">Thời gian vận chuyển thực tế trung bình (ngày), theo dõi theo từng tháng ETA</div>
+    <div class="chart-wrap tall" id="leadtimeChart"></div>
+  </div>
+
+  <details class="history">
+    <summary>Lịch sử lô đã giao (Delivered) <span class="chev">▸</span></summary>
+    <div class="history-body">
+      <div class="table-scroll">
+        <table id="historyTable">
+          <thead>
+            <tr>
+              <th class="po">PO</th><th>Supplier</th><th>Product</th><th>ETD</th><th>ETA Plan</th>
+              <th>ETA Current</th><th>Arrival</th><th>Delay Days</th><th>ETA Status</th><th>Cause</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </details>
+
+</main>
+
+<footer>
+  Nguồn dữ liệu: ETA Monitoring Dataset — KD VINA. Remaining Days = ETA Current − ngày chốt số liệu. Dashboard phản ánh dữ liệu tại thời điểm xuất báo cáo.
+</footer>
+
+<script>
+const RAW = [{"PO":"PO1001","Supplier":"KD Solutions","Product in process":"Auto Cutting Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"HMM","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU776356","ETD":"2026-01-08","ETA Plan":"2026-02-02","ETA Current":"2026-02-03","Arrival Date":"2026-02-03","Shipment Status":"Delivered","Leadtime Plan":25,"Leadtime Actual":26,"Delay Days":1,"Remaining Days":0,"ETA Status":"Delayed","Risk Level":"Medium","Cause":"Vessel Delay","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1002","Supplier":"Taekwang Mộc Bài","Product in process":"Hydraulic Press Machine","Reason":"Fix","Origin":"Moc Bai - Tay Ninh","Carrier":"Internal transport vehicle","Forwarder":"-","POL":"Moc Bai - Tay Ninh","POD":"KD VINA","Transport Mode":"Road","Container No":"-","ETD":"2026-01-11","ETA Plan":"2026-01-11","ETA Current":"2026-01-11","Arrival Date":"2026-01-11","Shipment Status":"Delivered","Leadtime Plan":0,"Leadtime Actual":0,"Delay Days":0,"Remaining Days":0,"ETA Status":"On Time","Risk Level":"Low","Cause":"Vessel Delay","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1003","Supplier":"KD Solutions","Product in process":"Dry Assembly Chamber","Reason":"Manufacture","Origin":"South Korea","Carrier":"Sinokor","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU169424","ETD":"2026-01-14","ETA Plan":"2026-02-05","ETA Current":"2026-02-08","Arrival Date":"2026-02-08","Shipment Status":"Delivered","Leadtime Plan":22,"Leadtime Actual":25,"Delay Days":3,"Remaining Days":0,"ETA Status":"Delayed","Risk Level":"Medium","Cause":"Vessel Delay","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"Yes","Production Impact":"Low"},{"PO":"PO1004","Supplier":"Taekwang VINA","Product in process":"Hydraulic Press Machine","Reason":"Fix","Origin":"Long Binh Industrial zone","Carrier":"Internal transport vehicle","Forwarder":"-","POL":"Long Binh Industrial zone","POD":"KD VINA","Transport Mode":"Road","Container No":"-","ETD":"2026-01-17","ETA Plan":"2026-01-17","ETA Current":"2026-01-17","Arrival Date":"2026-01-17","Shipment Status":"Delivered","Leadtime Plan":0,"Leadtime Actual":0,"Delay Days":0,"Remaining Days":0,"ETA Status":"On Time","Risk Level":"Medium","Cause":"-","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1005","Supplier":"Samho VN","Product in process":"Auto Cutting Machine","Reason":"Maintenance","Origin":"Cu Chi ","Carrier":"Internal transport vehicle","Forwarder":"-","POL":"Cu Chi","POD":"KD VINA","Transport Mode":"Road","Container No":"-","ETD":"2026-01-20","ETA Plan":"2026-01-20","ETA Current":"2026-01-21","Arrival Date":"2026-02-16","Shipment Status":"Delivered","Leadtime Plan":0,"Leadtime Actual":1,"Delay Days":1,"Remaining Days":0,"ETA Status":"Delayed","Risk Level":"Medium","Cause":"Request to reschedule the pickup.","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1006","Supplier":"KD Solutions","Product in process":"Dry Assembly Chamber","Reason":"Manufacture","Origin":"South Korea","Carrier":"Evergreen","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU175260","ETD":"2026-01-23","ETA Plan":"2026-02-17","ETA Current":"2026-02-17","Arrival Date":"2026-02-17","Shipment Status":"Delivered","Leadtime Plan":25,"Leadtime Actual":25,"Delay Days":0,"Remaining Days":0,"ETA Status":"On Time","Risk Level":"Medium","Cause":"-","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1007","Supplier":"KD Solutions","Product in process":"Auto Cutting Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"Maersk","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU594528","ETD":"2026-01-26","ETA Plan":"2026-02-20","ETA Current":"2026-02-20","Arrival Date":"2026-02-20","Shipment Status":"Delivered","Leadtime Plan":25,"Leadtime Actual":25,"Delay Days":0,"Remaining Days":0,"ETA Status":"On Time","Risk Level":"Medium","Cause":"-","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1008","Supplier":"KD Solutions","Product in process":"Auto Cutting Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"Evergreen","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU177087","ETD":"2026-01-29","ETA Plan":"2026-02-23","ETA Current":"2026-02-25","Arrival Date":"2026-02-25","Shipment Status":"Delivered","Leadtime Plan":25,"Leadtime Actual":27,"Delay Days":2,"Remaining Days":0,"ETA Status":"Delayed","Risk Level":"Medium","Cause":"Vessel Delay","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1009","Supplier":"Samho VN","Product in process":"3D Silicon Press Machine","Reason":"Fix","Origin":"Cu Chi ","Carrier":"Internal transport vehicle","Forwarder":"-","POL":"Cu Chi","POD":"KD VINA","Transport Mode":"Road","Container No":"-","ETD":"2026-02-01","ETA Plan":"2026-02-01","ETA Current":"2026-02-02","Arrival Date":"2026-02-02","Shipment Status":"Delivered","Leadtime Plan":0,"Leadtime Actual":1,"Delay Days":1,"Remaining Days":0,"ETA Status":"Delayed","Risk Level":"Medium","Cause":"Request to reschedule the pickup.","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1010","Supplier":"KD Solutions","Product in process":"Vacuum Press Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"Evergreen","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU913004","ETD":"2026-02-04","ETA Plan":"2026-03-01","ETA Current":"2026-03-01","Arrival Date":"2026-03-01","Shipment Status":"Delivered","Leadtime Plan":25,"Leadtime Actual":25,"Delay Days":0,"Remaining Days":0,"ETA Status":"On Time","Risk Level":"Medium","Cause":"Port Congestion","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1011","Supplier":"KD Solutions","Product in process":"Vacuum Press Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"CMA CGM","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU448053","ETD":"2026-02-07","ETA Plan":"2026-03-04","ETA Current":"2026-03-07","Arrival Date":"2026-03-07","Shipment Status":"Delivered","Leadtime Plan":25,"Leadtime Actual":28,"Delay Days":3,"Remaining Days":0,"ETA Status":"Delayed","Risk Level":"Medium","Cause":"Vessel Delay","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"Yes","Production Impact":"Low"},{"PO":"PO1012","Supplier":"Taekwang VINA","Product in process":"Auto Cutting Machine","Reason":"Maintenance","Origin":"Long Binh Industrial zone","Carrier":"Internal transport vehicle","Forwarder":"-","POL":"Long Binh Industrial zone","POD":"KD VINA","Transport Mode":"Road","Container No":"-","ETD":"2026-02-10","ETA Plan":"2026-02-10","ETA Current":"2026-02-10","Arrival Date":"2026-01-17","Shipment Status":"Delivered","Leadtime Plan":0,"Leadtime Actual":0,"Delay Days":0,"Remaining Days":0,"ETA Status":"On Time","Risk Level":"Medium","Cause":"-","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1013","Supplier":"KD Solutions","Product in process":"Dry Assembly Chamber","Reason":"Manufacture","Origin":"South Korea","Carrier":"CMA CGM","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU605579","ETD":"2026-02-13","ETA Plan":"2026-03-10","ETA Current":"2026-03-11","Arrival Date":"2026-03-11","Shipment Status":"Delivered","Leadtime Plan":25,"Leadtime Actual":26,"Delay Days":1,"Remaining Days":0,"ETA Status":"Delayed","Risk Level":"Medium","Cause":"Vessel Delay","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1014","Supplier":"KD Solutions","Product in process":"Dry Assembly Chamber","Reason":"Manufacture","Origin":"South Korea","Carrier":"Evergreen","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU226974","ETD":"2026-02-16","ETA Plan":"2026-03-13","ETA Current":"2026-03-14","Arrival Date":"2026-03-14","Shipment Status":"Delivered","Leadtime Plan":25,"Leadtime Actual":26,"Delay Days":1,"Remaining Days":0,"ETA Status":"Delayed","Risk Level":"Medium","Cause":"Vessel Delay","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1015","Supplier":"KD Solutions","Product in process":"Auto Cutting Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"ONE","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU972854","ETD":"2026-02-19","ETA Plan":"2026-03-16","ETA Current":"2026-03-16","Arrival Date":"2026-03-16","Shipment Status":"Delivered","Leadtime Plan":25,"Leadtime Actual":25,"Delay Days":0,"Remaining Days":0,"ETA Status":"On Time","Risk Level":"Medium","Cause":"Weather","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1016","Supplier":"KD Solutions","Product in process":"Auto Cutting Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"Maersk","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU439352","ETD":"2026-02-22","ETA Plan":"2026-03-19","ETA Current":"2026-03-22","Arrival Date":"2026-03-22","Shipment Status":"Delivered","Leadtime Plan":25,"Leadtime Actual":28,"Delay Days":3,"Remaining Days":0,"ETA Status":"Delayed","Risk Level":"Medium","Cause":"Vessel Delay","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"Yes","Production Impact":"Low"},{"PO":"PO1017","Supplier":"KD Solutions","Product in process":"Heat Tunnel","Reason":"Manufacture","Origin":"South Korea","Carrier":"Maersk","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU285576","ETD":"2026-02-25","ETA Plan":"2026-03-22","ETA Current":"2026-03-25","Arrival Date":"2026-03-25","Shipment Status":"Delivered","Leadtime Plan":25,"Leadtime Actual":28,"Delay Days":3,"Remaining Days":0,"ETA Status":"Delayed","Risk Level":"Medium","Cause":"Vessel Delay","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"Yes","Production Impact":"Low"},{"PO":"PO1018","Supplier":"Taekwang Mộc Bài","Product in process":"Hydraulic Press Machine","Reason":"Maintenance","Origin":"Moc Bai - Tay Ninh","Carrier":"Internal transport vehicle","Forwarder":"-","POL":"Moc Bai - Tay Ninh","POD":"KD VINA","Transport Mode":"Road","Container No":"-","ETD":"2026-02-28","ETA Plan":"2026-02-28","ETA Current":"2026-02-28","Arrival Date":"2026-02-28","Shipment Status":"Delivered","Leadtime Plan":0,"Leadtime Actual":0,"Delay Days":0,"Remaining Days":0,"ETA Status":"On Time","Risk Level":"Low","Cause":"-","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1019","Supplier":"KD Solutions","Product in process":"Dry Assembly Chamber","Reason":"Manufacture","Origin":"South Korea","Carrier":"ONE","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU436426","ETD":"2026-03-03","ETA Plan":"2026-03-28","ETA Current":"2026-03-30","Arrival Date":"2026-03-30","Shipment Status":"Delivered","Leadtime Plan":25,"Leadtime Actual":27,"Delay Days":2,"Remaining Days":0,"ETA Status":"Delayed","Risk Level":"Medium","Cause":"Vessel Delay","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1020","Supplier":"KD Solutions","Product in process":"Dry Assembly Chamber","Reason":"Manufacture","Origin":"South Korea","Carrier":"ONE","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU892827","ETD":"2026-03-06","ETA Plan":"2026-03-31","ETA Current":"2026-04-02","Arrival Date":"2026-04-02","Shipment Status":"Delivered","Leadtime Plan":25,"Leadtime Actual":27,"Delay Days":2,"Remaining Days":0,"ETA Status":"Delayed","Risk Level":"Medium","Cause":"Vessel Delay","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1021","Supplier":"KD Solutions","Product in process":"Heat Tunnel","Reason":"Manufacture","Origin":"South Korea","Carrier":"CMA CGM","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU906600","ETD":"2026-03-09","ETA Plan":"2026-04-03","ETA Current":"2026-04-06","Arrival Date":"2026-04-06","Shipment Status":"Delivered","Leadtime Plan":25,"Leadtime Actual":28,"Delay Days":3,"Remaining Days":0,"ETA Status":"Delayed","Risk Level":"Medium","Cause":"Vessel Delay","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"Yes","Production Impact":"Low"},{"PO":"PO1022","Supplier":"Hwasueng VINA","Product in process":"Dry Assembly Chamber","Reason":"Maintenance","Origin":"Nhon Trach Industrial zone","Carrier":"Internal transport vehicle","Forwarder":"-","POL":"Nhon Trach Industrial zone","POD":"KD VINA","Transport Mode":"Road","Container No":"-","ETD":"2026-03-12","ETA Plan":"2026-03-12","ETA Current":"2026-03-12","Arrival Date":"2026-03-12","Shipment Status":"Delivered","Leadtime Plan":0,"Leadtime Actual":0,"Delay Days":0,"Remaining Days":0,"ETA Status":"On Time","Risk Level":"Medium","Cause":"-","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"Yes","Production Impact":"Low"},{"PO":"PO1023","Supplier":"KD Solutions","Product in process":"Hydraulic Press Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"Evergreen","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU176659","ETD":"2026-03-15","ETA Plan":"2026-04-09","ETA Current":"2026-04-11","Arrival Date":"2026-04-11","Shipment Status":"Delivered","Leadtime Plan":25,"Leadtime Actual":27,"Delay Days":2,"Remaining Days":0,"ETA Status":"Delayed","Risk Level":"Medium","Cause":"Vessel Delay","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1024","Supplier":"KD Solutions","Product in process":"Dry Assembly Chamber","Reason":"Manufacture","Origin":"South Korea","Carrier":"Evergreen","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU816751","ETD":"2026-03-18","ETA Plan":"2026-04-12","ETA Current":"2026-04-15","Arrival Date":"2026-04-15","Shipment Status":"Delivered","Leadtime Plan":25,"Leadtime Actual":28,"Delay Days":3,"Remaining Days":0,"ETA Status":"Delayed","Risk Level":"Medium","Cause":"-","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"Yes","Production Impact":"Low"},{"PO":"PO1025","Supplier":"KD Solutions","Product in process":"3D Silicon Press Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"CMA CGM","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU432922","ETD":"2026-03-21","ETA Plan":"2026-04-15","ETA Current":"2026-04-16","Arrival Date":"2026-04-16","Shipment Status":"Delivered","Leadtime Plan":25,"Leadtime Actual":26,"Delay Days":1,"Remaining Days":0,"ETA Status":"Delayed","Risk Level":"Medium","Cause":"Vessel Delay","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1026","Supplier":"KD Solutions","Product in process":"Auto Cutting Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"ONE","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU830627","ETD":"2026-03-24","ETA Plan":"2026-04-18","ETA Current":"2026-04-21","Arrival Date":"2026-04-21","Shipment Status":"Delivered","Leadtime Plan":25,"Leadtime Actual":28,"Delay Days":3,"Remaining Days":0,"ETA Status":"Delayed","Risk Level":"Medium","Cause":"Vessel Delay","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"Yes","Production Impact":"Low"},{"PO":"PO1027","Supplier":"KD Solutions","Product in process":"Vacuum Press Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"Maersk","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU133766","ETD":"2026-03-27","ETA Plan":"2026-04-21","ETA Current":"2026-04-21","Arrival Date":"2026-04-21","Shipment Status":"Delivered","Leadtime Plan":25,"Leadtime Actual":25,"Delay Days":0,"Remaining Days":0,"ETA Status":"On Time","Risk Level":"Medium","Cause":"Port Congestion","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1028","Supplier":"Taekwang Mộc Bài","Product in process":"3D Silicon Press Machine","Reason":"Fix","Origin":"Moc Bai - Tay Ninh","Carrier":"Internal transport vehicle","Forwarder":"-","POL":"Moc Bai - Tay Ninh","POD":"KD VINA","Transport Mode":"Road","Container No":"-","ETD":"2026-03-31","ETA Plan":"2026-03-31","ETA Current":"2026-03-31","Arrival Date":"2026-03-31","Shipment Status":"Delivered","Leadtime Plan":0,"Leadtime Actual":0,"Delay Days":0,"Remaining Days":0,"ETA Status":"On Time","Risk Level":"Low","Cause":"-","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1029","Supplier":"KD Solutions","Product in process":"3D Silicon Press Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"Maersk","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU180985","ETD":"2026-04-02","ETA Plan":"2026-04-27","ETA Current":"2026-04-28","Arrival Date":"2026-04-28","Shipment Status":"Delivered","Leadtime Plan":25,"Leadtime Actual":26,"Delay Days":1,"Remaining Days":0,"ETA Status":"Delayed","Risk Level":"Medium","Cause":"Vessel Delay","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1030","Supplier":"KD Solutions","Product in process":"Hydraulic Press Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"ONE","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU902990","ETD":"2026-04-05","ETA Plan":"2026-04-30","ETA Current":"2026-05-01","Arrival Date":"2026-05-01","Shipment Status":"Delivered","Leadtime Plan":25,"Leadtime Actual":26,"Delay Days":1,"Remaining Days":0,"ETA Status":"Delayed","Risk Level":"Medium","Cause":"Vessel Delay","Last Update":"2026-08-03","Shipment Progress (%)":100,"Alert Flag":"No","Production Impact":"Low"},{"PO":"PO1031","Supplier":"KD Solutions","Product in process":"Auto Cutting Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"CMA CGM","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU439383","ETD":"2026-07-04","ETA Plan":"2026-07-29","ETA Current":"2026-08-01","Arrival Date":"-","Shipment Status":"Arrived at Port","Leadtime Plan":25,"Leadtime Actual":28,"Delay Days":3,"Remaining Days":-2,"ETA Status":"Delayed","Risk Level":"High","Cause":"-","Last Update":"2026-08-03","Shipment Progress (%)":85,"Alert Flag":"Yes","Production Impact":"Medium"},{"PO":"PO1032","Supplier":"KD Solutions","Product in process":"Dry Assembly Chamber","Reason":"Manufacture","Origin":"South Korea","Carrier":"Maersk","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU236954","ETD":"2026-07-07","ETA Plan":"2026-08-01","ETA Current":"2026-08-04","Arrival Date":"-","Shipment Status":"Arrived at Port","Leadtime Plan":25,"Leadtime Actual":28,"Delay Days":3,"Remaining Days":1,"ETA Status":"Delayed","Risk Level":"High","Cause":"-","Last Update":"2026-08-03","Shipment Progress (%)":85,"Alert Flag":"Yes","Production Impact":"Medium"},{"PO":"PO1033","Supplier":"KD Solutions","Product in process":"Dry Assembly Chamber","Reason":"Manufacture","Origin":"South Korea","Carrier":"CMA CGM","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU456445","ETD":"2026-07-10","ETA Plan":"2026-08-04","ETA Current":"2026-08-04","Arrival Date":"-","Shipment Status":"Arrived at Port","Leadtime Plan":25,"Leadtime Actual":25,"Delay Days":0,"Remaining Days":1,"ETA Status":"On Time","Risk Level":"High","Cause":"Weather","Last Update":"2026-08-03","Shipment Progress (%)":85,"Alert Flag":"Yes","Production Impact":"Low"},{"PO":"PO1034","Supplier":"KD Solutions","Product in process":"3D Silicon Press Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"CMA CGM","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU314671","ETD":"2026-07-13","ETA Plan":"2026-08-07","ETA Current":"2026-08-07","Arrival Date":"-","Shipment Status":"Arrived at Port","Leadtime Plan":25,"Leadtime Actual":25,"Delay Days":0,"Remaining Days":4,"ETA Status":"On Time","Risk Level":"High","Cause":"Weather","Last Update":"2026-08-03","Shipment Progress (%)":85,"Alert Flag":"Yes","Production Impact":"Low"},{"PO":"PO1035","Supplier":"KD Solutions","Product in process":"3D Silicon Press Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"CMA CGM","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU929241","ETD":"2026-07-16","ETA Plan":"2026-08-10","ETA Current":"2026-08-10","Arrival Date":"-","Shipment Status":"Arrived at Port","Leadtime Plan":25,"Leadtime Actual":25,"Delay Days":0,"Remaining Days":7,"ETA Status":"On Time","Risk Level":"High","Cause":"Vessel Delay","Last Update":"2026-08-03","Shipment Progress (%)":85,"Alert Flag":"Yes","Production Impact":"High"},{"PO":"PO1036","Supplier":"KD Solutions","Product in process":"Hydraulic Press Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"Maersk","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU484516","ETD":"2026-07-19","ETA Plan":"2026-08-13","ETA Current":"2026-08-14","Arrival Date":"-","Shipment Status":"Customs Clearance","Leadtime Plan":25,"Leadtime Actual":26,"Delay Days":1,"Remaining Days":11,"ETA Status":"Delayed","Risk Level":"High","Cause":"Customs Inspection","Last Update":"2026-08-03","Shipment Progress (%)":95,"Alert Flag":"Yes","Production Impact":"Medium"},{"PO":"PO1037","Supplier":"KD Solutions","Product in process":"Vacuum Press Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"CMA CGM","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU772813","ETD":"2026-07-22","ETA Plan":"2026-08-16","ETA Current":"2026-08-17","Arrival Date":"-","Shipment Status":"Customs Clearance","Leadtime Plan":25,"Leadtime Actual":26,"Delay Days":1,"Remaining Days":14,"ETA Status":"Delayed","Risk Level":"High","Cause":"Customs Inspection","Last Update":"2026-08-03","Shipment Progress (%)":95,"Alert Flag":"Yes","Production Impact":"Medium"},{"PO":"PO1038","Supplier":"KD Solutions","Product in process":"Hydraulic Press Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"Maersk","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU879795","ETD":"2026-07-25","ETA Plan":"2026-08-19","ETA Current":"2026-08-19","Arrival Date":"-","Shipment Status":"Customs Clearance","Leadtime Plan":25,"Leadtime Actual":25,"Delay Days":0,"Remaining Days":16,"ETA Status":"On Time","Risk Level":"High","Cause":"Vessel Delay","Last Update":"2026-08-03","Shipment Progress (%)":95,"Alert Flag":"Yes","Production Impact":"Medium"},{"PO":"PO1039","Supplier":"KD Solutions","Product in process":"3D Silicon Press Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"CMA CGM","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU366921","ETD":"2026-07-28","ETA Plan":"2026-08-22","ETA Current":"2026-08-23","Arrival Date":"-","Shipment Status":"In Transit","Leadtime Plan":25,"Leadtime Actual":26,"Delay Days":1,"Remaining Days":20,"ETA Status":"Delayed","Risk Level":"High","Cause":"Weather","Last Update":"2026-08-03","Shipment Progress (%)":60,"Alert Flag":"Yes","Production Impact":"Medium"},{"PO":"PO1040","Supplier":"KD Solutions","Product in process":"3D Silicon Press Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"Evergreen","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU522724","ETD":"2026-07-31","ETA Plan":"2026-08-25","ETA Current":"2026-08-25","Arrival Date":"-","Shipment Status":"In Transit","Leadtime Plan":25,"Leadtime Actual":25,"Delay Days":0,"Remaining Days":22,"ETA Status":"On Time","Risk Level":"High","Cause":"Production Delay","Last Update":"2026-08-03","Shipment Progress (%)":60,"Alert Flag":"Yes","Production Impact":"High"},{"PO":"PO1041","Supplier":"KD Solutions","Product in process":"Auto Cutting Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"Maersk","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU768938","ETD":"2026-08-03","ETA Plan":"2026-08-28","ETA Current":"2026-08-28","Arrival Date":"-","Shipment Status":"In Transit","Leadtime Plan":25,"Leadtime Actual":25,"Delay Days":0,"Remaining Days":25,"ETA Status":"On Time","Risk Level":"High","Cause":"Production Delay","Last Update":"2026-08-03","Shipment Progress (%)":60,"Alert Flag":"Yes","Production Impact":"Medium"},{"PO":"PO1042","Supplier":"KD Solutions","Product in process":"Heat Tunnel","Reason":"Manufacture","Origin":"South Korea","Carrier":"ONE","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU635038","ETD":"2026-08-06","ETA Plan":"2026-08-31","ETA Current":"2026-09-02","Arrival Date":"-","Shipment Status":"In Transit","Leadtime Plan":25,"Leadtime Actual":27,"Delay Days":2,"Remaining Days":30,"ETA Status":"Delayed","Risk Level":"High","Cause":"Production Delay","Last Update":"2026-08-03","Shipment Progress (%)":60,"Alert Flag":"Yes","Production Impact":"High"},{"PO":"PO1043","Supplier":"KD Solutions","Product in process":"3D Silicon Press Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"ONE","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU503460","ETD":"2026-08-09","ETA Plan":"2026-09-03","ETA Current":"2026-09-03","Arrival Date":"-","Shipment Status":"In Transit","Leadtime Plan":25,"Leadtime Actual":25,"Delay Days":0,"Remaining Days":31,"ETA Status":"On Time","Risk Level":"High","Cause":"-","Last Update":"2026-08-03","Shipment Progress (%)":60,"Alert Flag":"Yes","Production Impact":"Low"},{"PO":"PO1044","Supplier":"KD Solutions","Product in process":"Auto Cutting Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"ONE","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU847447","ETD":"2026-08-12","ETA Plan":"2026-09-06","ETA Current":"2026-09-06","Arrival Date":"-","Shipment Status":"In Transit","Leadtime Plan":25,"Leadtime Actual":25,"Delay Days":0,"Remaining Days":34,"ETA Status":"On Time","Risk Level":"High","Cause":"Weather","Last Update":"2026-08-03","Shipment Progress (%)":60,"Alert Flag":"Yes","Production Impact":"Low"},{"PO":"PO1045","Supplier":"KD Solutions","Product in process":"Vacuum Press Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"ONE","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU558312","ETD":"2026-08-15","ETA Plan":"2026-09-09","ETA Current":"2026-09-09","Arrival Date":"-","Shipment Status":"In Transit","Leadtime Plan":25,"Leadtime Actual":25,"Delay Days":0,"Remaining Days":37,"ETA Status":"On Time","Risk Level":"High","Cause":"Weather","Last Update":"2026-08-03","Shipment Progress (%)":60,"Alert Flag":"Yes","Production Impact":"Medium"},{"PO":"PO1046","Supplier":"KD Solutions","Product in process":"Auto Cutting Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"Maersk","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU972956","ETD":"2026-08-18","ETA Plan":"2026-09-12","ETA Current":"2026-09-12","Arrival Date":"-","Shipment Status":"In Transit","Leadtime Plan":25,"Leadtime Actual":25,"Delay Days":0,"Remaining Days":40,"ETA Status":"On Time","Risk Level":"High","Cause":"Vessel Delay","Last Update":"2026-08-03","Shipment Progress (%)":60,"Alert Flag":"Yes","Production Impact":"Low"},{"PO":"PO1047","Supplier":"KD Solutions","Product in process":"Conveyor System","Reason":"Manufacture","Origin":"South Korea","Carrier":"Maersk","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU423040","ETD":"2026-08-21","ETA Plan":"2026-09-15","ETA Current":"2026-09-16","Arrival Date":"-","Shipment Status":"Loaded on Vessel","Leadtime Plan":25,"Leadtime Actual":26,"Delay Days":1,"Remaining Days":44,"ETA Status":"Delayed","Risk Level":"High","Cause":"-","Last Update":"2026-08-03","Shipment Progress (%)":20,"Alert Flag":"Yes","Production Impact":"Medium"},{"PO":"PO1048","Supplier":"KD Solutions","Product in process":"Dry Assembly Chamber","Reason":"Manufacture","Origin":"South Korea","Carrier":"CMA CGM","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU649308","ETD":"2026-08-24","ETA Plan":"2026-09-18","ETA Current":"2026-09-20","Arrival Date":"-","Shipment Status":"Loaded on Vessel","Leadtime Plan":25,"Leadtime Actual":27,"Delay Days":2,"Remaining Days":48,"ETA Status":"Delayed","Risk Level":"High","Cause":"Port Congestion","Last Update":"2026-08-03","Shipment Progress (%)":20,"Alert Flag":"Yes","Production Impact":"Low"},{"PO":"PO1049","Supplier":"KD Solutions","Product in process":"3D Silicon Press Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"ONE","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU589909","ETD":"2026-08-27","ETA Plan":"2026-09-21","ETA Current":"2026-09-21","Arrival Date":"-","Shipment Status":"Loaded on Vessel","Leadtime Plan":25,"Leadtime Actual":25,"Delay Days":0,"Remaining Days":49,"ETA Status":"On Time","Risk Level":"High","Cause":"Vessel Delay","Last Update":"2026-08-03","Shipment Progress (%)":20,"Alert Flag":"Yes","Production Impact":"Low"},{"PO":"PO1050","Supplier":"KD Solutions","Product in process":"Hydraulic Press Machine","Reason":"Manufacture","Origin":"South Korea","Carrier":"ONE","Forwarder":"SML","POL":"Busan - Korea","POD":"Cat Lai","Transport Mode":"Sea","Container No":"MSCU477419","ETD":"2026-08-30","ETA Plan":"2026-09-24","ETA Current":"2026-09-26","Arrival Date":"-","Shipment Status":"Booking Confirmed","Leadtime Plan":25,"Leadtime Actual":27,"Delay Days":2,"Remaining Days":54,"ETA Status":"Delayed","Risk Level":"High","Cause":"-","Last Update":"2026-08-03","Shipment Progress (%)":5,"Alert Flag":"Yes","Production Impact":"Low"}];
+const REPORT_DATE = "2026-08-03"; // khớp với TODAY() lúc export file Excel
+
+document.getElementById('reportDateLabel').textContent =
+  new Date(REPORT_DATE+'T00:00:00').toLocaleDateString('vi-VN', {day:'2-digit',month:'2-digit',year:'numeric'});
+
+// ---------- helpers ----------
+function riskBucket(remaining){
+  if(remaining < 0) return {cls:'red', label:'Overdue'};
+  if(remaining <= 3) return {cls:'orange', label:'Critical'};
+  if(remaining <= 7) return {cls:'yellow', label:'Warning'};
+  return {cls:'green', label:'On track'};
+}
+function riskColorHex(cls){
+  return {red:'#DC2626', orange:'#E8862E', yellow:'#C99A11', green:'#1B8A55', gray:'#B9C2CF'}[cls];
+}
+function riskLevelPill(level){
+  const map = {High:'red', Medium:'orange', Low:'green'};
+  const cls = map[level] || 'gray';
+  return `<span class="pill ${cls}">${level}</span>`;
+}
+function fmtDate(iso){
+  if(!iso || iso === '-') return '-';
+  const d = new Date(iso+'T00:00:00');
+  if(isNaN(d)) return iso;
+  return d.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'});
+}
+function monthKey(iso){
+  if(!iso || iso === '-') return null;
+  return iso.slice(0,7); // YYYY-MM, sortable tự nhiên
+}
+function monthLabel(key){
+  const [y,m] = key.split('-');
+  const names = ['Th1','Th2','Th3','Th4','Th5','Th6','Th7','Th8','Th9','Th10','Th11','Th12'];
+  return names[parseInt(m,10)-1] + ' ' + y;
+}
+
+// ---------- filter state ----------
+const state = { supplier:'all', risk:'all', status:'all' };
+
+function populateFilters(){
+  const suppliers = [...new Set(RAW.map(d=>d.Supplier))].sort();
+  const risks = [...new Set(RAW.map(d=>d['Risk Level']))];
+  const riskOrder = ['High','Medium','Low'];
+  risks.sort((a,b)=>riskOrder.indexOf(a)-riskOrder.indexOf(b));
+  const statuses = [...new Set(RAW.map(d=>d['Shipment Status']))];
+
+  const sSel = document.getElementById('fSupplier');
+  suppliers.forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s; sSel.appendChild(o); });
+
+  const rSel = document.getElementById('fRisk');
+  risks.forEach(r=>{ const o=document.createElement('option'); o.value=r; o.textContent=r; rSel.appendChild(o); });
+
+  const stSel = document.getElementById('fStatus');
+  statuses.forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s; stSel.appendChild(o); });
+
+  sSel.addEventListener('change', e=>{ state.supplier=e.target.value; renderAll(); });
+  rSel.addEventListener('change', e=>{ state.risk=e.target.value; renderAll(); });
+  stSel.addEventListener('change', e=>{ state.status=e.target.value; renderAll(); });
+  document.getElementById('resetFilters').addEventListener('click', ()=>{
+    state.supplier='all'; state.risk='all'; state.status='all';
+    sSel.value='all'; rSel.value='all'; stSel.value='all';
+    renderAll();
+  });
+}
+
+function filteredData(){
+  return RAW.filter(d=>
+    (state.supplier==='all' || d.Supplier===state.supplier) &&
+    (state.risk==='all' || d['Risk Level']===state.risk) &&
+    (state.status==='all' || d['Shipment Status']===state.status)
+  );
+}
+
+// ---------- KPI ----------
+function renderKPIs(data){
+  const total = data.length;
+  const delivered = data.filter(d=>d['Shipment Status']==='Delivered');
+  const notDelivered = data.filter(d=>d['Shipment Status']!=='Delivered');
+  const inTransit = data.filter(d=>d['Shipment Status']==='In Transit').length;
+  const atRisk = notDelivered.filter(d=>riskBucket(d['Remaining Days']).cls!=='green').length;
+  const overdue = notDelivered.filter(d=>d['Remaining Days']<0).length;
+  const onTimeRate = delivered.length ? (delivered.filter(d=>d['ETA Status']==='On Time').length/delivered.length*100) : 0;
+  const avgDelay = total ? (data.reduce((a,d)=>a+d['Delay Days'],0)/total) : 0;
+
+  const cards = [
+    {lbl:'Total PO', val:total, sub:`${delivered.length} đã giao · ${notDelivered.length} đang xử lý`, cls:'navy'},
+    {lbl:'In Transit', val:inTransit, sub:'đang trên đường vận chuyển', cls:'steel'},
+    {lbl:'At Risk / Overdue', val:`${atRisk} / ${overdue}`, sub:'chưa giao, Remaining ≤ 7 ngày / đã quá hạn', cls:'warning'},
+    {lbl:'Delayed (ETA Status)', val:data.filter(d=>d['ETA Status']==='Delayed').length, sub:'ETA hiện tại trễ so với kế hoạch', cls:'danger'},
+    {lbl:'On-time Rate', val:onTimeRate.toFixed(1)+'%', sub:'tính trên các lô đã Delivered', cls:'good'},
+    {lbl:'Avg Delay Days', val:avgDelay.toFixed(1)+' ngày', sub:'trung bình toàn bộ lô trong bộ lọc', cls:'steel'},
+  ];
+  document.getElementById('kpiRow').innerHTML = cards.map(c=>`
+    <div class="kpi ${c.cls}">
+      <div class="lbl">${c.lbl}</div>
+      <div class="val mono">${c.val}</div>
+      <div class="sub">${c.sub}</div>
+    </div>`).join('');
+}
+
+// ---------- signal strip ----------
+function renderSignalStrip(data){
+  const notDelivered = data.filter(d=>d['Shipment Status']!=='Delivered')
+    .slice().sort((a,b)=>a['Remaining Days']-b['Remaining Days']);
+  const strip = document.getElementById('signalStrip');
+  if(!notDelivered.length){ strip.innerHTML = '<span style="font-size:12px;color:var(--muted-2)">Không có lô nào đang xử lý trong bộ lọc hiện tại.</span>'; return; }
+  const maxAbs = Math.max(...notDelivered.map(d=>Math.abs(d['Remaining Days'])), 7);
+  strip.innerHTML = notDelivered.map(d=>{
+    const b = riskBucket(d['Remaining Days']);
+    const h = 10 + Math.min(36, (Math.abs(d['Remaining Days'])/maxAbs)*36);
+    return `<div class="signal-tick" style="height:${h}px;background:${riskColorHex(b.cls)}" title="${d.PO} · ${d.Supplier} · ${d['Remaining Days']} ngày · ${d['Shipment Status']}"></div>`;
+  }).join('');
+}
+
+// ---------- alert table ----------
+function renderAlertTable(data){
+  const rows = data.filter(d=>d['Shipment Status']!=='Delivered')
+    .slice().sort((a,b)=>a['Remaining Days']-b['Remaining Days']);
+  document.getElementById('alertCount').textContent = `${rows.length} lô đang theo dõi`;
+  const body = document.getElementById('alertBody');
+  const empty = document.getElementById('alertEmpty');
+  if(!rows.length){ body.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  body.innerHTML = rows.map(d=>{
+    const b = riskBucket(d['Remaining Days']);
+    return `<tr>
+      <td class="po">${d.PO}</td>
+      <td>${d.Supplier}</td>
+      <td>${d.Carrier}</td>
+      <td>${d['Shipment Status']}</td>
+      <td class="mono">${fmtDate(d['ETA Plan'])}</td>
+      <td class="mono">${fmtDate(d['ETA Current'])}</td>
+      <td><span class="pill ${b.cls}"><span class="rd-val">${d['Remaining Days']}</span> ngày · ${b.label}</span></td>
+      <td>${riskLevelPill(d['Risk Level'])}</td>
+      <td>${d.Cause === '-' ? '—' : d.Cause}</td>
+      <td>${d['Production Impact']}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ---------- history table ----------
+function renderHistoryTable(data){
+  const rows = data.filter(d=>d['Shipment Status']==='Delivered');
+  document.getElementById('historyBody').innerHTML = rows.map(d=>`
+    <tr>
+      <td class="po">${d.PO}</td>
+      <td>${d.Supplier}</td>
+      <td>${d['Product in process']}</td>
+      <td class="mono">${fmtDate(d['ETD'])}</td>
+      <td class="mono">${fmtDate(d['ETA Plan'])}</td>
+      <td class="mono">${fmtDate(d['ETA Current'])}</td>
+      <td class="mono">${fmtDate(d['Arrival Date'])}</td>
+      <td class="mono">${d['Delay Days']}</td>
+      <td><span class="pill ${d['ETA Status']==='Delayed'?'orange':'green'}">${d['ETA Status']}</span></td>
+      <td>${d.Cause === '-' ? '—' : d.Cause}</td>
+    </tr>`).join('');
+}
+
+// ---------- charts (tự vẽ bằng SVG/CSS, không phụ thuộc thư viện ngoài) ----------
+const STATUS_PALETTE = {
+  'Delivered':'#3B7DDB','In Transit':'#16324F','Arrived at Port':'#E8862E',
+  'Customs Clearance':'#8E5FD1','Loaded on Vessel':'#D1548A','Booking Confirmed':'#C99A11'
+};
+
+function renderDonut(data){
+  const wrap = document.getElementById('donutChart');
+  if(!data.length){ wrap.innerHTML = '<div class="empty-note">Không có dữ liệu khớp bộ lọc.</div>'; return; }
+  const counts = {};
+  data.forEach(d=>{ counts[d['Shipment Status']] = (counts[d['Shipment Status']]||0)+1; });
+  const labels = Object.keys(counts);
+  const total = data.length;
+
+  let acc = 0;
+  const stops = labels.map(l=>{
+    const pct = counts[l]/total*100;
+    const from = acc, to = acc + pct;
+    acc = to;
+    return `${STATUS_PALETTE[l]||'#94A3B8'} ${from}% ${to}%`;
+  }).join(', ');
+
+  const legendRows = labels
+    .sort((a,b)=>counts[b]-counts[a])
+    .map(l=>`<div class="row">
+        <span class="dot" style="background:${STATUS_PALETTE[l]||'#94A3B8'}"></span>
+        <span class="name">${l}</span>
+        <span class="cnt">${counts[l]} (${(counts[l]/total*100).toFixed(0)}%)</span>
+      </div>`).join('');
+
+  wrap.innerHTML = `
+    <div class="donut-row">
+      <div class="donut-ring" style="background:conic-gradient(${stops})">
+        <div class="donut-center"><div class="n mono">${total}</div><div class="l">PO</div></div>
+      </div>
+      <div class="donut-legend2">${legendRows}</div>
+    </div>`;
+}
+
+function renderCauseBar(data){
+  const wrap = document.getElementById('causeChart');
+  const causes = {};
+  data.filter(d=>d['Delay Days']>0 && d.Cause!=='-').forEach(d=>{
+    causes[d.Cause] = (causes[d.Cause]||0) + d['Delay Days'];
+  });
+  const labels = Object.keys(causes).sort((a,b)=>causes[b]-causes[a]);
+  if(!labels.length){ wrap.innerHTML = '<div class="empty-note">Không có lô trễ nào khớp bộ lọc.</div>'; return; }
+  const max = Math.max(...labels.map(l=>causes[l]));
+  wrap.innerHTML = `<div class="barlist">${labels.map(l=>`
+    <div class="brow">
+      <div class="blabel" title="${l}">${l}</div>
+      <div class="btrack"><div class="bfill" style="width:${(causes[l]/max*100).toFixed(1)}%"></div></div>
+      <div class="bval">${causes[l]}</div>
+    </div>`).join('')}</div>`;
+}
+
+function renderLeadtimeChart(data){
+  const wrap = document.getElementById('leadtimeChart');
+  const byMonth = {};
+  data.forEach(d=>{
+    const k = monthKey(d['ETA Current']);
+    if(!k) return;
+    if(!byMonth[k]) byMonth[k] = [];
+    byMonth[k].push(d['Leadtime Actual']);
+  });
+  // Sắp xếp đúng theo thời gian (khoá YYYY-MM sort tự nhiên = đúng thứ tự thời gian)
+  const keys = Object.keys(byMonth).sort();
+  if(!keys.length){ wrap.innerHTML = '<div class="empty-note">Không có dữ liệu khớp bộ lọc.</div>'; return; }
+  const labels = keys.map(monthLabel);
+  const values = keys.map(k=>{
+    const arr = byMonth[k];
+    return +(arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(1);
+  });
+
+  const W = 900, H = 240, padL = 34, padR = 16, padT = 16, padB = 30;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+  const maxV = Math.max(...values, 1);
+  const minV = 0;
+  const stepX = keys.length > 1 ? innerW/(keys.length-1) : 0;
+  const xAt = i => padL + stepX*i;
+  const yAt = v => padT + innerH - ((v-minV)/(maxV-minV||1))*innerH;
+
+  const linePts = values.map((v,i)=>`${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(' ');
+  const areaPts = `${xAt(0).toFixed(1)},${(padT+innerH).toFixed(1)} ${linePts} ${xAt(values.length-1).toFixed(1)},${(padT+innerH).toFixed(1)}`;
+
+  const gridLines = [0,0.25,0.5,0.75,1].map(f=>{
+    const y = padT + innerH*(1-f);
+    const v = (maxV*f).toFixed(0);
+    return `<line class="grid-line" x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" />
+            <text class="axis-label" x="${padL-8}" y="${(y+3).toFixed(1)}" text-anchor="end">${v}</text>`;
+  }).join('');
+
+  const xLabels = labels.map((l,i)=>`<text class="axis-label" x="${xAt(i).toFixed(1)}" y="${H-8}" text-anchor="middle">${l}</text>`).join('');
+  const points = values.map((v,i)=>`<circle class="pt" cx="${xAt(i).toFixed(1)}" cy="${yAt(v).toFixed(1)}" r="3.5" />
+      <text class="value-label" x="${xAt(i).toFixed(1)}" y="${(yAt(v)-10).toFixed(1)}" text-anchor="middle">${v}</text>`).join('');
+
+  wrap.innerHTML = `<svg class="linechart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      ${gridLines}
+      <polygon class="area-path" points="${areaPts}" />
+      <polyline class="line-path" points="${linePts}" />
+      ${points}
+      ${xLabels}
+    </svg>`;
+}
+
+function renderAll(){
+  const data = filteredData();
+  renderKPIs(data);
+  renderSignalStrip(data);
+  renderAlertTable(data);
+  renderHistoryTable(data);
+  renderDonut(data);
+  renderCauseBar(data);
+  renderLeadtimeChart(data);
+}
+
+populateFilters();
+renderAll();
+</script>
+</body>
+</html>
